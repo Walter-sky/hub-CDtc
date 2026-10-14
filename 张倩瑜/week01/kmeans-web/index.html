@@ -1,0 +1,1742 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K-Means 图像分类器 · 手写源码 + 库对照</title>
+<style>
+  :root{
+    --bg:#0e1014; --panel:#161a21; --panel2:#1c212a; --line:#272d38;
+    --fg:#e7eaf0; --muted:#98a2b3; --accent:#5b9dff; --accent2:#39d3a3;
+    --warn:#ffb454; --mono:"Cascadia Mono","JetBrains Mono",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:radial-gradient(1200px 600px at 20% -10%,#1a2434 0%,var(--bg) 55%) no-repeat,var(--bg);
+    color:var(--fg); font:14px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1440px;margin:0 auto;padding:20px 20px 60px}
+  header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
+  h1{font-size:20px;margin:0 0 4px}
+  h1 small{font-size:12px;color:var(--muted);font-weight:400;margin-left:8px}
+  .sub{color:var(--muted);font-size:12.5px;max-width:820px}
+  .badge{display:inline-block;font:11px/1.8 var(--mono);color:var(--accent2);border:1px solid #2b4a42;background:#12211d;border-radius:999px;padding:0 9px}
+  .grid{display:grid;grid-template-columns:330px minmax(0,1fr);gap:14px;align-items:start}
+  @media (max-width:940px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .card h2{font-size:13px;margin:0 0 10px;color:var(--fg);letter-spacing:.3px;text-transform:uppercase;opacity:.9}
+  .card h3{font-size:12.5px;margin:16px 0 8px;color:var(--muted);font-weight:600}
+  label.row{display:block;margin:12px 0}
+  .lbl{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--muted);margin-bottom:5px}
+  .lbl b{color:var(--fg);font:12.5px/1 var(--mono)}
+  select,input[type=number],input[type=range]{width:100%}
+  select,input[type=number]{
+    background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:9px;
+    padding:7px 9px;font:13px/1.4 inherit;outline:none;
+  }
+  select:focus,input[type=number]:focus{border-color:#3a5d9a}
+  input[type=range]{accent-color:var(--accent);height:22px}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  button{
+    background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:9px;
+    padding:8px 12px;font:13px/1 inherit;cursor:pointer;transition:.15s;
+  }
+  button:hover{border-color:#3d4a5e;background:#222835}
+  button.primary{background:linear-gradient(180deg,#4b8ef0,#3b78d6);border-color:#4b8ef0;color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .drop{
+    border:1.5px dashed #33405a;border-radius:12px;padding:14px;text-align:center;color:var(--muted);
+    font-size:12.5px;background:#12161d;transition:.15s;cursor:pointer;
+  }
+  .drop.hot{border-color:var(--accent);background:#152033;color:var(--fg)}
+  .previews{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.previews{grid-template-columns:1fr}}
+  figure{margin:0}
+  figure figcaption{font-size:12px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between}
+  canvas{display:block;width:100%;height:auto;border-radius:10px;background:#0a0c10;border:1px solid var(--line)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:6px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .stat .k{font-size:11px;color:var(--muted)}
+  .stat .v{font:15px/1.5 var(--mono);color:var(--fg);word-break:break-all}
+  .palette{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .sw{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);
+      border-radius:9px;padding:5px 9px 5px 6px;font:11.5px/1.3 var(--mono);cursor:pointer}
+  .sw:hover{border-color:#3d4a5e}
+  .sw i{width:22px;height:22px;border-radius:6px;display:block;border:1px solid rgba(255,255,255,.14)}
+  .sw small{color:var(--muted)}
+  .bars{margin-top:4px}
+  .bar{display:grid;grid-template-columns:92px 1fr 74px;gap:8px;align-items:center;margin:5px 0;font:11.5px/1.4 var(--mono)}
+  .bar .track{background:#11151c;border:1px solid var(--line);border-radius:6px;height:14px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:5px}
+  .bar .n{color:var(--muted);text-align:right}
+  .log{background:#0b0e13;border:1px solid var(--line);border-radius:10px;padding:10px;
+       font:11.5px/1.65 var(--mono);color:#9fb0c7;max-height:190px;overflow:auto;white-space:pre-wrap}
+  .log b{color:var(--accent2);font-weight:600}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:8px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .tabs button.on{background:#22314a;border-color:#3f6bb5;color:#fff}
+  .codebox{position:relative}
+  pre.code{background:#0b0e13;border:1px solid var(--line);border-radius:10px;padding:14px;
+    font:12px/1.62 var(--mono);color:#cfd8e6;overflow:auto;max-height:560px;margin:0;white-space:pre;tab-size:2}
+  pre.code::-webkit-scrollbar,.log::-webkit-scrollbar{width:10px;height:10px}
+  pre.code::-webkit-scrollbar-thumb,.log::-webkit-scrollbar-thumb{background:#2b3444;border-radius:8px}
+  .copy{position:absolute;right:10px;top:10px;font-size:11.5px;padding:5px 9px;opacity:.85}
+  .tok-key{color:#ff9ecb} .tok-str{color:#9ee493} .tok-com{color:#5f7185;font-style:italic}
+  .tok-num{color:#ffcf87} .tok-fn{color:#7fc4ff}
+  table.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.tbl th,table.tbl td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  table.tbl th{background:var(--panel2);color:var(--muted);font-weight:600;white-space:nowrap}
+  table.tbl code{font:11.5px/1.5 var(--mono);color:#9ee493;background:#0b0e13;border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+  .note{background:#141b17;border:1px solid #2b4a42;border-radius:10px;padding:10px 12px;color:#bcd8cf;font-size:12.5px;margin-top:10px}
+  .warn{background:#1d1811;border-color:#544122;color:#e8cfa8}
+  .hidden{display:none !important}
+  footer{margin-top:18px;color:var(--muted);font-size:12px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>K-Means 图像分类器 <small>手写算法源码 · 零依赖 · 单文件网页</small></h1>
+      <div class="sub">
+        把图片的每个像素当作一个数据点（颜色 / 颜色+位置），用 k-means 聚类成 K 类：
+        既可以做<b>颜色量化（调色板）</b>，也可以做<b>区域分割</b>。页面里的 k-means 是完整手写实现，
+        源码就在下方标签页里，可直接复制；同时标注了每个步骤对应的库调用。
+      </div>
+    </div>
+    <div><span class="badge">Lloyd + k-means++</span> <span class="badge">no dependency</span></div>
+  </header>
+
+  <div class="grid">
+    <!-- ============ 左：控制面板 ============ -->
+    <section class="card">
+      <h2>① 图片</h2>
+      <div class="drop" id="drop">
+        点击选择图片 · 或把图片拖到这里 · 或 Ctrl+V 粘贴
+      </div>
+      <input type="file" id="file" accept="image/*" class="hidden">
+      <div class="btns" style="margin-top:8px">
+        <button data-demo="blocks">示例：几何色块</button>
+        <button data-demo="rings">示例：同心圆</button>
+        <button data-demo="scene">示例：风景渐变</button>
+      </div>
+
+      <h2 style="margin-top:18px">② 参数</h2>
+
+      <label class="row">
+        <span class="lbl">特征模式 <b id="vMode">颜色+位置</b></span>
+        <select id="mode">
+          <option value="rgb">颜色 RGB（＝颜色量化）</option>
+          <option value="rgbxy" selected>颜色 RGB + 位置 XY（＝图像分割）</option>
+          <option value="lab">Lab 颜色（感知均匀）</option>
+          <option value="labxy">Lab 颜色 + 位置 XY</option>
+        </select>
+      </label>
+
+      <label class="row">
+        <span class="lbl">簇数 K <b id="vK">8</b></span>
+        <input type="range" id="k" min="2" max="16" step="1" value="8">
+      </label>
+
+      <label class="row" id="wWrap">
+        <span class="lbl">空间权重（位置项比重） <b id="vW">0.80</b></span>
+        <input type="range" id="weight" min="0" max="3" step="0.1" value="0.8">
+      </label>
+
+      <label class="row">
+        <span class="lbl">初始化 <b id="vInit">k-means++</b></span>
+        <select id="init">
+          <option value="kmeans++" selected>k-means++（推荐）</option>
+          <option value="farthest">最远优先 farthest-first</option>
+          <option value="random">纯随机 random</option>
+        </select>
+      </label>
+
+      <label class="row">
+        <span class="lbl">随机种子 seed <b>可复现</b></span>
+        <input type="number" id="seed" value="42" min="0" max="999999" step="1">
+      </label>
+
+      <label class="row">
+        <span class="lbl">最大迭代次数 <b>100</b></span>
+        <input type="number" id="maxIter" value="100" min="1" max="500" step="1">
+      </label>
+
+      <label class="row">
+        <span class="lbl">收敛阈值 tol（质心位移²） <b>0.0001</b></span>
+        <input type="number" id="tol" value="0.0001" min="0" max="1" step="0.0001">
+      </label>
+
+      <label class="row">
+        <span class="lbl">工作分辨率（长边像素） <b id="vSide">360</b></span>
+        <input type="range" id="side" min="160" max="900" step="20" value="360">
+      </label>
+
+      <label class="row">
+        <span class="lbl">拟合采样点数 <b id="vSample">6000</b></span>
+        <input type="range" id="sample" min="500" max="30000" step="500" value="6000">
+      </label>
+
+      <label class="row">
+        <span class="lbl">输出模式</span>
+        <select id="out">
+          <option value="quant" selected>调色板量化（k-means 结果）</option>
+          <option value="orig">原图 + 簇边界</option>
+        </select>
+      </label>
+
+      <label class="row" style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="edges" checked style="width:auto"> <span style="font-size:12.5px;color:var(--muted)">在量化图上叠加簇边界</span>
+      </label>
+      <label class="row" style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="live" style="width:auto"> <span style="font-size:12.5px;color:var(--muted)">每次迭代实时预览（慢，仅演示用）</span>
+      </label>
+
+      <div class="btns" style="margin-top:12px">
+        <button class="primary" id="run" disabled>运行 K-Means</button>
+        <button id="stop" disabled>停止</button>
+      </div>
+      <div class="hint">改参数会自动重跑（图片已载入时）。全部计算在浏览器本地完成，不上传任何图片。</div>
+    </section>
+
+    <!-- ============ 右：预览 + 结果 ============ -->
+    <div style="display:grid;gap:14px">
+      <section class="card">
+        <h2>③ 结果预览</h2>
+        <div class="previews">
+          <figure>
+            <figcaption><span>原图（工作分辨率）</span><span id="origSize">—</span></figcaption>
+            <canvas id="cvOrig" width="360" height="240"></canvas>
+          </figure>
+          <figure>
+            <figcaption><span id="outTitle">K-Means 量化 / 分割结果</span><span id="outSize">—</span></figcaption>
+            <canvas id="cvOut" width="360" height="240"></canvas>
+          </figure>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>④ 指标与调色板</h2>
+        <div class="stats">
+          <div class="stat"><div class="k">簇数 K / 特征维度</div><div class="v" id="sK">—</div></div>
+          <div class="stat"><div class="k">迭代次数</div><div class="v" id="sIter">—</div></div>
+          <div class="stat"><div class="k">inertia（SSE）</div><div class="v" id="sInertia">—</div></div>
+          <div class="stat"><div class="k">轮廓系数（抽样）</div><div class="v" id="sSil">—</div></div>
+          <div class="stat"><div class="k">耗时</div><div class="v" id="sTime">—</div></div>
+          <div class="stat"><div class="k">收敛</div><div class="v" id="sConv">—</div></div>
+        </div>
+        <div class="palette" id="palette"></div>
+        <div class="bars" id="bars"></div>
+        <canvas id="chart" width="700" height="120" style="border:none;background:transparent;margin-top:6px"></canvas>
+        <div class="btns" style="margin-top:10px">
+          <button id="dlPng" disabled>下载结果 PNG</button>
+          <button id="dlJson" disabled>下载 JSON（调色板+参数）</button>
+          <button id="copyPal" disabled>复制调色板 HEX</button>
+        </div>
+        <h3>运行日志</h3>
+        <div class="log" id="log">等待载入图片…</div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ 下：源码 / 库对照 ============ -->
+  <section class="card" style="margin-top:14px">
+    <h2>⑤ 算法源码 &amp; 等价库调用</h2>
+    <div class="tabs">
+      <button class="on" data-tab="kmeans">k-means 源码（手写）</button>
+      <button data-tab="features">图像管线 / 特征工程</button>
+      <button data-tab="libs">库对照（同样效果怎么调）</button>
+      <button data-tab="theory">算法说明 / 数学</button>
+    </div>
+
+    <div class="codebox" id="pane-kmeans">
+      <button class="copy" data-copy="kmeans">复制源码</button>
+      <pre class="code" id="code-kmeans"></pre>
+    </div>
+    <div class="codebox hidden" id="pane-features">
+      <button class="copy" data-copy="features">复制源码</button>
+      <pre class="code" id="code-features"></pre>
+    </div>
+
+    <div id="pane-libs" class="hidden">
+      <div class="note">
+        <b>结论先说：</b>下面这些调用都能得到与本页相同的效果（K 个簇 + 每点标签 + 质心 + SSE）。
+        但<b>结果不会逐位相同</b>——因为各库的初始化抽样、收敛判据、空簇处理、并行规约顺序不同。
+        要复现本页数值：固定 <code>seed</code>、指定 k-means++ 初始化、并把 <code>tol</code> / 迭代上限设为同一组值。
+      </div>
+      <h3>速查表：一个功能，各库怎么写</h3>
+      <table class="tbl">
+        <thead><tr><th>功能</th><th>本页手写实现</th><th>库调用</th></tr></thead>
+        <tbody>
+          <tr><td>k-means++ 播种</td><td><code>initKMeansPlusPlus()</code></td>
+              <td>sklearn <code>init='k-means++'</code>、OpenCV <code>KMEANS_PP_CENTERS</code>、SciPy <code>minit='++'</code>、ml-kmeans <code>initialization:'kmeans++'</code>、MATLAB <code>'Start','plus'</code></td></tr>
+          <tr><td>多组初始化取最优</td><td>外层循环改 seed 跑多次比 inertia</td>
+              <td>sklearn <code>n_init=10</code>、OpenCV <code>attempts=5</code>、faiss <code>nredo=5</code>、MATLAB <code>'Replicates',5</code>、R <code>nstart=25</code></td></tr>
+          <tr><td>迭代主循环</td><td><code>createStepper().step()</code></td>
+              <td>sklearn <code>KMeans(...).fit(X)</code>、<code>cv2.kmeans(...)</code>、<code>kmeans2(X,k,iter=...)</code>、ml-kmeans <code>kmeans(X,k)</code></td></tr>
+          <tr><td>收敛判据</td><td>标签不再变化 或 质心位移² ≤ tol</td>
+              <td>sklearn <code>tol=1e-4</code>、OpenCV <code>TermCriteria(EPS+MAX_ITER,…)</code>、ml-kmeans <code>tolerance</code></td></tr>
+          <tr><td>每个点的簇编号</td><td><code>labels</code>（Int32Array）</td>
+              <td>sklearn <code>labels_</code>、OpenCV <code>bestLabels</code>、SciPy 返回的 <code>label</code>、ml-kmeans <code>result.clusters</code></td></tr>
+          <tr><td>质心</td><td><code>centroids</code>（k×d）</td>
+              <td>sklearn <code>cluster_centers_</code>、OpenCV <code>centers</code>、SciPy 返回的 <code>centroid</code>、ml-kmeans <code>result.centroids</code></td></tr>
+          <tr><td>误差平方和 SSE</td><td><code>inertia</code></td>
+              <td>sklearn <code>inertia_</code>、OpenCV 返回值 <code>compactness</code>、R <code>tot.withinss</code>、ml-kmeans <code>computeInformation()</code></td></tr>
+          <tr><td>新数据分配到已有簇</td><td><code>assignAll()</code> / <code>assign()</code></td>
+              <td>ml-kmeans <code>result.nearest(points)</code>、sklearn <code>km.predict(X)</code>、OpenCV <code>cv2.kmeans</code> 不直接支持 → 用 <code>centers</code> 做最近邻</td></tr>
+          <tr><td>聚类质量评估</td><td><code>silhouette()</code></td>
+              <td>sklearn <code>silhouette_score</code>、<code>calinski_harabasz_score</code>；手肘法看 <code>inertia_</code> 曲线</td></tr>
+        </tbody>
+      </table>
+
+      <h3>代码片段</h3>
+      <div class="tabs" id="libTabs"></div>
+      <div class="codebox">
+        <button class="copy" id="copyLib">复制片段</button>
+        <pre class="code" id="code-lib"></pre>
+      </div>
+    </div>
+
+    <div id="pane-theory" class="hidden">
+      <h3>算法在做什么</h3>
+      <p style="color:#c8d2e0">
+        目标：把 n 个像素点 x₁…xₙ（每个是 d 维向量）分成 K 个簇 S₁…S_K，使簇内平方误差和最小：
+      </p>
+      <pre class="code" style="max-height:none">J = Σ_{c=1..K} Σ_{x ∈ S_c} ‖x − μ_c‖²      ,  μ_c = (1/|S_c|) Σ_{x ∈ S_c} x
+
+这是一个 NP-hard 问题的常用近似解，Lloyd 迭代（本页实现）交替做两件事：
+
+  1) 分配 (Assignment)  x 归到最近的质心：  label(x) = argmin_c ‖x − μ_c‖²
+  2) 更新 (Update)      质心 = 本簇所有点的均值： μ_c ← mean(S_c)
+
+性质：每一步都不会让 J 变大 → J 单调不增，因此一定收敛（可能收敛到局部最优）。
+所以初始化很关键：纯随机会经常收敛到很差的局部解，k-means++ 让初始质心尽量互相远离，
+理论上把 J 的期望近似控制在最优解的 O(log K) 倍以内。
+
+停止条件（本页实现，和主流库一致）：
+  · 标签不再变化        → 真正收敛
+  · 质心位移² ≤ tol     → 提前收工（tol 偶发早停：某一轮恰好只挪了一点点，不等于已经到底）
+  · 迭代次数达到上限    → 强制停止
+无论走哪一条，本页最后都会用当前标签再做一次"取均值"更新，然后按最终的 (labels, centroids)
+重算 inertia。所以返回的三样东西永远严格自洽：
+        centroids = 各簇均值      （可以自己按标签算一遍验证）
+        inertia   = Σ‖x − μ_label(x)‖²
+代价是极少数压在分界线上的点，其标签不是新质心的严格最近者（差最后一小步）。
+sklearn 做的是相反的选择——标签严格取最近质心，于是 cluster_centers_ 偶尔不是 labels_ 的
+精确均值。两者都不是 bug，只是"最后一步收在哪"的取舍。
+
+k-means++ 播种（本页 initKMeansPlusPlus）：
+  ① 均匀随机取第一个质心
+  ② 计算每个点到"已有质心集合"的最近距离平方 D(x)²
+  ③ 以正比于 D(x)² 的概率抽下一个质心（离得越远越容易被抽中）
+  ④ 重复 ②③ 直到取满 K 个
+
+空簇处理：某个簇一个点都没分到 → 把"离自己质心最远的那个点"抢过来（等价于 sklearn 的做法），
+否则空簇的质心会退化并永远吸不到点。
+
+图像上的两个变体（本页"特征模式"）：
+  · 颜色 RGB / Lab ：只在颜色空间聚类 → 结果就是一张 K 色调色板的量化图（posterize / 减色）。
+  · 颜色 + 位置 XY ：把像素坐标 (x/W, y/H) 乘空间权重后拼到颜色向量后面，共 5 维 →
+    k-means 同时考虑"颜色像"和"位置近" → 得到连通的区域分割（SLIC 超像素的简化版就是这个思路）。</pre>
+      <div class="note warn">陷阱提醒：k-means 用的是欧氏距离，隐含假设簇是"各向同性、大小相近的球"；
+        对细长、弯折、密度差异大的区域会切得很怪。另外 RGB 距离与人眼感知不一致——想更符合直觉就选 Lab。</div>
+    </div>
+  </section>
+
+  <footer>
+    单文件、零依赖，直接双击打开即可用（file:// 也能跑）。全部计算在本地浏览器完成。
+  </footer>
+</div>
+
+<script>
+/* ============================================================================
+ *  第一部分：手写 k-means 源码（这段会被原样显示在页面"k-means 源码"标签页中）
+ *  —— 纯 JS、零依赖、无副作用，可整段复制到 Node / 浏览器 / Worker 里用。
+ * ========================================================================== */
+function KMeansModule() {
+  'use strict';
+
+  // ---------------------------------------------------------------------------
+  // 0. 数据约定
+  //    points : Float32Array，长度 n*d；第 i 个样本的第 j 维 = points[i*d + j]
+  //    n      : 样本数        d : 维度        k : 簇数
+  //    距离   : 平方欧氏距离 ‖a−b‖²（省掉开方，比较大小等价，且就是 SSE 的组成项）
+  //    等价库 : scipy.spatial.distance.cdist(X, C, 'sqeuclidean') / torch.cdist(X, C, p=2)**2
+  // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // 1. 可复现随机数：mulberry32（32 位种子，周期 2^32，质量足够做初始化抽样）
+  //    等价库：numpy.random.default_rng(seed) / sklearn 的 random_state / std::mt19937
+  // ---------------------------------------------------------------------------
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function random() {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;   // -> [0,1)
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 2. 平方欧氏距离（两个点分别在扁平数组中的起始下标 ai / bi）
+  //    这是整个算法最热的函数：n × k × d 次乘加
+  //    等价库：sklearn 内部用 (X−C)² 的矩阵运算；GPU 上用 torch.cdist / faiss 的 IndexFlatL2
+  // ---------------------------------------------------------------------------
+  function sqDist(a, ai, b, bi, d) {
+    let s = 0;
+    for (let j = 0; j < d; j++) {
+      const t = a[ai + j] - b[bi + j];
+      s += t * t;
+    }
+    return s;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 3. 三种初始化。返回 Float32Array(k*d)。
+  //    等价库：ml-kmeans 的 initialization: 'kmeans++' | 'random' | 'mostDistant'
+  // ---------------------------------------------------------------------------
+
+  // 3a. 纯随机：随机挑 k 个互不相同的样本当质心
+  //     sklearn init='random'（从数据中抽 k 行） / scipy minit='points'
+  function initRandom(points, n, d, k, random) {
+    const centroids = new Float32Array(k * d);
+    const used = new Set();
+    for (let c = 0; c < k; c++) {
+      let idx = Math.floor(random() * n);
+      let guard = 0;
+      while (used.has(idx) && guard++ < 4 * n) idx = (idx + 1) % n;
+      used.add(idx);
+      for (let j = 0; j < d; j++) centroids[c * d + j] = points[idx * d + j];
+    }
+    return centroids;
+  }
+
+  // 3b. 最远优先：第一个随机，之后每次取"离已有质心集合最远"的样本
+  //     等价库：ml-kmeans 的 initialization: 'mostDistant'
+  function initFarthest(points, n, d, k, random) {
+    const centroids = new Float32Array(k * d);
+    const dist2 = new Float64Array(n).fill(Infinity);
+    const first = Math.floor(random() * n) % n;
+    for (let j = 0; j < d; j++) centroids[j] = points[first * d + j];
+    for (let c = 1; c < k; c++) {
+      const prev = (c - 1) * d;
+      let best = 0, bestD = -1;
+      for (let i = 0; i < n; i++) {
+        const dd = sqDist(points, i * d, centroids, prev, d);
+        if (dd < dist2[i]) dist2[i] = dd;
+        if (dist2[i] > bestD) { bestD = dist2[i]; best = i; }
+      }
+      for (let j = 0; j < d; j++) centroids[c * d + j] = points[best * d + j];
+    }
+    return centroids;
+  }
+
+  // 3c. k-means++（Arthur & Vassilvitskii, 2007）——默认、推荐
+  //     等价库：sklearn init='k-means++'（默认）/ OpenCV cv.KMEANS_PP_CENTERS
+  //             scipy minit='++' / ml-kmeans initialization:'kmeans++'（默认）
+  //             MATLAB 'Start','plus'
+  function initKMeansPlusPlus(points, n, d, k, random) {
+    const centroids = new Float32Array(k * d);
+    const dist2 = new Float64Array(n).fill(Infinity);  // 每点到已选质心集合的最近平方距离
+
+    // ① 第一个质心：均匀随机
+    const first = Math.floor(random() * n) % n;
+    for (let j = 0; j < d; j++) centroids[j] = points[first * d + j];
+
+    for (let c = 1; c < k; c++) {
+      const prev = (c - 1) * d;
+      // ② 只需用"刚加入的质心"更新 D(x)²，并累加总权重
+      let total = 0;
+      for (let i = 0; i < n; i++) {
+        const dd = sqDist(points, i * d, centroids, prev, d);
+        if (dd < dist2[i]) dist2[i] = dd;
+        total += dist2[i];
+      }
+      // 所有点到质心距离都为 0（数据全同 / k > 去重后的点数）→ 只能随便挑
+      let chosen;
+      if (total <= 0) {
+        chosen = Math.floor(random() * n) % n;
+      } else {
+        // ③ 轮盘赌：以正比于 D(x)² 的概率抽样
+        let target = random() * total;
+        chosen = n - 1;
+        for (let i = 0; i < n; i++) {
+          target -= dist2[i];
+          if (target <= 0) { chosen = i; break; }
+        }
+      }
+      for (let j = 0; j < d; j++) centroids[c * d + j] = points[chosen * d + j];
+    }
+    return centroids;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. 分配步：给每个点找最近质心，同时统计 SSE(inertia)、各簇点数、标签变化数
+  //    等价库：sklearn 内部 _labels_inertia / pairwise_distances_argmin_min
+  //            ml-kmeans 的 distanceFunction（默认 squaredEuclidean）
+  // ---------------------------------------------------------------------------
+  function assign(points, n, d, centroids, k, labels, counts) {
+    let inertia = 0;      // Σ ‖x − μ_label(x)‖² —— 目标函数 J
+    let changed = 0;      // 标签变化的点数；为 0 即认为收敛（sklearn 的判据之一）
+    counts.fill(0);
+
+    for (let i = 0; i < n; i++) {
+      const off = i * d;
+      let best = 0;
+      let bestD = sqDist(points, off, centroids, 0, d);
+      for (let c = 1; c < k; c++) {
+        const dd = sqDist(points, off, centroids, c * d, d);
+        if (dd < bestD) { bestD = dd; best = c; }
+      }
+      if (labels[i] !== best) { labels[i] = best; changed++; }
+      counts[best]++;
+      inertia += bestD;
+    }
+    return { inertia: inertia, changed: changed };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5. 更新步：μ_c ← 本簇均值；并修复空簇。返回质心位移平方和（用于收敛判定）
+  //    等价库：sklearn 的 _kmeans_plusplus/_update_centers；空簇修复见 sklearn
+  //            KMeans 的 "样本最远点重分配" 逻辑
+  // ---------------------------------------------------------------------------
+  function update(points, n, d, k, labels, counts, centroids, log) {
+    const sums = new Float64Array(k * d);
+    for (let i = 0; i < n; i++) {
+      const off = i * d, c = labels[i];
+      for (let j = 0; j < d; j++) sums[c * d + j] += points[off + j];
+    }
+
+    // 空簇修复：把"离自己质心最远"的点抢过来（别把别的簇掏空）
+    for (let c = 0; c < k; c++) {
+      if (counts[c] > 0) continue;
+      let far = -1, farD = -1, donor = -1;
+      for (let i = 0; i < n; i++) {
+        const cl = labels[i];
+        if (counts[cl] <= 1) continue;               // 只有一个点的簇不能被掏空
+        const dd = sqDist(points, i * d, centroids, cl * d, d);
+        if (dd > farD) { farD = dd; far = i; donor = cl; }
+      }
+      if (far < 0) { if (log) log('簇 ' + c + ' 为空且无法修复（点数太少？）'); continue; }
+      labels[far] = c;
+      counts[donor]--; counts[c] = 1;
+      for (let j = 0; j < d; j++) {
+        sums[c * d + j] = points[far * d + j];       // 新簇只有这一个点 → 均值就是它本身
+        sums[donor * d + j] -= points[far * d + j];  // 供体簇把该点减去
+      }
+      if (log) log('簇 ' + c + ' 为空 → 从簇 ' + donor + ' 抢来点 #' + far);
+    }
+
+    // 统一写入新质心，并累计位移平方和
+    let shift = 0;
+    for (let c = 0; c < k; c++) {
+      if (counts[c] === 0) continue;                  // 仍为空则保留旧质心
+      const base = c * d;
+      for (let j = 0; j < d; j++) {
+        const v = sums[base + j] / counts[c];
+        const dv = v - centroids[base + j];
+        shift += dv * dv;
+        centroids[base + j] = v;
+      }
+    }
+    return shift;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5.1 按给定的 (质心, 标签) 计算 SSE —— 收尾时用它把 inertia 与最终状态对齐
+  //     等价库：sklearn 内部 _labels_inertia() 返回的第二个值
+  // ---------------------------------------------------------------------------
+  function sse(points, n, d, centroids, labels) {
+    let s = 0;
+    for (let i = 0; i < n; i++) s += sqDist(points, i * d, centroids, labels[i] * d, d);
+    return s;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 6. 分步执行器：每次 step() 跑一轮"分配(+更新)"，方便网页做逐帧动画 / 提前停止。
+  //    （ml-kmeans 里同样有分步版本：kmeansGenerator()）
+  // ---------------------------------------------------------------------------
+  function createStepper(points, n, d, k, options) {
+    const opt = Object.assign({
+      init: 'kmeans++',        // 'kmeans++' | 'farthest' | 'random'
+      seed: 42,
+      maxIterations: 100,      // sklearn max_iter / OpenCV MAX_ITER / ml-kmeans maxIterations
+      tolerance: 1e-4,         // sklearn tol / OpenCV TermCriteria EPS / ml-kmeans tolerance
+      log: null,
+      onIteration: null
+    }, options || {});
+
+    k = Math.max(1, Math.min(k | 0, n));               // k 不能超过样本数
+    const random = mulberry32(opt.seed);
+
+    let centroids = null;
+    const labels = new Int32Array(n).fill(-1);
+    const counts = new Int32Array(k);
+    const history = [];
+    let iteration = 0, inertia = Infinity, shift = Infinity;
+    let converged = false, done = false, started = false;
+
+    function step() {
+      if (done) return true;
+
+      // 初始化（只做一次）
+      if (!started) {
+        started = true;
+        if (opt.init === 'random') centroids = initRandom(points, n, d, k, random);
+        else if (opt.init === 'farthest') centroids = initFarthest(points, n, d, k, random);
+        else centroids = initKMeansPlusPlus(points, n, d, k, random);
+        if (opt.log) opt.log('初始化完成（' + opt.init + '，seed=' + opt.seed + '）');
+      }
+
+      // ① 分配
+      const a = assign(points, n, d, centroids, k, labels, counts);
+      inertia = a.inertia;
+      iteration++;
+
+      const stable = (a.changed === 0);                            // 标签不再变化 = 真正收敛
+      const tinyShift = (iteration > 1 && shift <= opt.tolerance);  // 质心几乎不动 = 提前收工
+      push(a);
+
+      // 终止：三种情况都走同一个收尾，保证返回的 (labels, centroids, inertia) 自洽
+      if (stable || tinyShift || iteration >= opt.maxIterations) {
+        converged = stable || tinyShift;
+        // 收尾：用当前标签做最后一次"取均值"更新。
+        // 这样返回的 centroids 恰好等于各簇均值（学生可以直接验算 μ_c = mean(S_c)），
+        // inertia 也按最终的 (labels, centroids) 重算，严格等于 Σ‖x−μ_label(x)‖²。
+        // 代价：极少数正好压在分界线上的点，其标签不是新质心的严格最近者
+        //（差"最后一小步"）。sklearn 是相反的选择：标签严格最近，但质心偶尔不是精确均值。
+        shift = update(points, n, d, k, labels, counts, centroids, opt.log);
+        const before = inertia;
+        inertia = sse(points, n, d, centroids, labels);
+        if (opt.log) {
+          opt.log('收尾：对最终标签做一次均值更新（centroids = 各簇均值），inertia ' +
+                  before.toFixed(3) + ' → ' + inertia.toFixed(3));
+        }
+        history.push({
+          iteration: iteration, inertia: inertia, shift: shift,
+          changed: 0, final: true, counts: Array.from(counts)
+        });
+        if (opt.onIteration) opt.onIteration(history[history.length - 1], centroids);
+        done = true;
+        return true;
+      }
+
+      // ② 更新
+      shift = update(points, n, d, k, labels, counts, centroids, opt.log);
+      return false;                                     // 还有下一轮
+
+      // 记录一轮迭代的结果（用于画 inertia 曲线 / 做动画）
+      function push(res) {
+        history.push({
+          iteration: iteration,
+          inertia: inertia,
+          shift: iteration === 1 ? NaN : shift,
+          changed: res.changed,
+          counts: Array.from(counts)
+        });
+        if (opt.onIteration) opt.onIteration(history[history.length - 1], centroids);
+      }
+    }
+
+    function result() {
+      return {
+        k: k, d: d, n: n,
+        labels: labels,
+        centroids: centroids,
+        inertia: inertia,
+        iterations: iteration,
+        converged: converged,
+        counts: Array.from(counts),
+        history: history
+      };
+    }
+
+    return {
+      step: step,
+      result: result,
+      isDone: function () { return done; },
+      get centroids() { return centroids; },
+      get labels() { return labels; },
+      get iteration() { return iteration; },
+      get inertia() { return inertia; }
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. 一次性跑完的便捷入口（等价于 sklearn .fit(X) 的一句话版本）
+  //    等价库：kmeans(data, k, {...})  of  ml-kmeans
+  // ---------------------------------------------------------------------------
+  function runKMeans(points, n, d, k, options) {
+    const st = createStepper(points, n, d, k, options);
+    while (!st.step()) { /* 一直迭代到收敛 / 到达上限 */ }
+    return st.result();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 8. 轮廓系数（抽样估计）：评估"分得好不好"，∈[-1,1]，越大越好
+  //    a(i)=到同簇其他点的平均距离  b(i)=到最近的其他簇的平均距离
+  //    s(i)=(b−a)/max(a,b)
+  //    等价库：sklearn.metrics.silhouette_score(X, labels)
+  //    复杂度 O(sample × n × d)，所以这里只抽 sample 个点
+  // ---------------------------------------------------------------------------
+  function silhouette(points, n, d, labels, k, sample, random) {
+    if (k < 2 || n < 3) return NaN;
+    sample = Math.min(sample || 300, n);
+    const rnd = random || mulberry32(12345);
+    // 先把每个簇的成员索引收集起来，避免反复扫描
+    const members = Array.from({ length: k }, function () { return []; });
+    for (let i = 0; i < n; i++) members[labels[i]].push(i);
+
+    let total = 0, used = 0;
+    for (let s = 0; s < sample; s++) {
+      const i = Math.floor(rnd() * n) % n;
+      const ci = labels[i];
+      if (members[ci].length < 2) continue;
+      let a = 0;
+      for (let x = 0; x < members[ci].length; x++) {
+        const j = members[ci][x];
+        if (j !== i) a += Math.sqrt(sqDist(points, i * d, points, j * d, d));
+      }
+      a /= (members[ci].length - 1);
+
+      let b = Infinity;
+      for (let c = 0; c < k; c++) {
+        if (c === ci || members[c].length === 0) continue;
+        let sum = 0;
+        for (let x = 0; x < members[c].length; x++) {
+          const j = members[c][x];
+          sum += Math.sqrt(sqDist(points, i * d, points, j * d, d));
+        }
+        const mean = sum / members[c].length;
+        if (mean < b) b = mean;
+      }
+      const m = Math.max(a, b);
+      if (m > 0) { total += (b - a) / m; used++; }
+    }
+    return used ? total / used : NaN;
+  }
+
+  return {
+    // 主入口
+    createStepper: createStepper,
+    runKMeans: runKMeans,
+    // 内部构件（也导出，便于单独测试 / 教学演示）
+    mulberry32: mulberry32,
+    sqDist: sqDist,
+    initRandom: initRandom,
+    initFarthest: initFarthest,
+    initKMeansPlusPlus: initKMeansPlusPlus,
+    assign: assign,
+    update: update,
+    sse: sse,
+    silhouette: silhouette
+  };
+}
+
+/* ============================================================================
+ *  第二部分：图像管线 + 特征工程（同样会在页面里显示源码）
+ * ========================================================================== */
+function FeatureModule() {
+  'use strict';
+
+  // sRGB → 线性 RGB → XYZ(D65) → Lab。Lab 是感知均匀的：相同的数值差 ≈ 相同的视觉差，
+  // 所以在 Lab 上做 k-means，比在 RGB 上更符合人眼。
+  // 等价库：skimage.color.rgb2lab / cv2.cvtColor(img, cv2.COLOR_RGB2LAB)  (OpenCV 的 L 是 0..255 缩放版)
+  //         colour-science(rgb2lab) / chroma.js / d3-color 的 lab()
+  const Xn = 0.95047, Yn = 1.0, Zn = 1.08883;   // D65 白点
+
+  function srgbToLinear(c) {                     // c ∈ [0,1]
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+  function linearToSrgb(c) {
+    return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  }
+  function labF(t) {                             // XYZ → Lab 的分段函数
+    return t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116;
+  }
+  function labFinv(t) {
+    const t3 = t * t * t;
+    return t3 > 216 / 24389 ? t3 : (116 * t - 16) * 27 / 24389;
+  }
+
+  function rgbToLab(r, g, b) {                   // r,g,b ∈ [0,255] -> [L,a,b]
+    const R = srgbToLinear(r / 255), G = srgbToLinear(g / 255), B = srgbToLinear(b / 255);
+    const X = 0.4124564 * R + 0.3575761 * G + 0.1804375 * B;
+    const Y = 0.2126729 * R + 0.7151522 * G + 0.0721750 * B;
+    const Z = 0.0193339 * R + 0.1191920 * G + 0.9503041 * B;
+    const fx = labF(X / Xn), fy = labF(Y / Yn), fz = labF(Z / Zn);
+    return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+  }
+
+  function labToRgb(L, a, b) {                   // Lab -> [r,g,b] ∈ [0,255]（超出 sRGB 色域就裁剪）
+    const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200;
+    const X = Xn * labFinv(fx), Y = Yn * labFinv(fy), Z = Zn * labFinv(fz);
+    let R = 3.2404542 * X - 1.5371385 * Y - 0.4985314 * Z;
+    let G = -0.9692660 * X + 1.8760108 * Y + 0.0415560 * Z;
+    let B = 0.0556434 * X - 0.2040259 * Y + 1.0572252 * Z;
+    R = linearToSrgb(R); G = linearToSrgb(G); B = linearToSrgb(B);
+    const cl = function (v) { return Math.max(0, Math.min(255, Math.round(v * 255))); };
+    return [cl(R), cl(G), cl(B)];
+  }
+
+  // 把某一个像素编码成 d 维特征向量，写进 out
+  // mode: 'rgb' | 'lab' | 'rgbxy' | 'labxy'
+  //   rgb/lab  : 3 维，只在颜色空间聚类  → 颜色量化（调色板）
+  //   *xy      : 5 维，颜色 3 维 + 归一化坐标 2 维 × 空间权重 → 区域分割
+  //              等价思路：SLIC 超像素 / mean-shift 分割 都把颜色和位置拼成一个向量
+  function encodePixel(px, o, mode, x, y, w, h, weight, out) {
+    if (mode === 'lab' || mode === 'labxy') {
+      const lab = rgbToLab(px[o], px[o + 1], px[o + 2]);
+      out[0] = lab[0] / 100;          // L: 0..100  ->  0..1
+      out[1] = (lab[1] + 128) / 255;  // a: -128..127 -> 0..1
+      out[2] = (lab[2] + 128) / 255;  // b: -128..127 -> 0..1
+    } else {
+      out[0] = px[o] / 255;
+      out[1] = px[o + 1] / 255;
+      out[2] = px[o + 2] / 255;
+    }
+    if (mode === 'rgbxy' || mode === 'labxy') {
+      out[3] = (w > 1 ? x / (w - 1) : 0) * weight;
+      out[4] = (h > 1 ? y / (h - 1) : 0) * weight;
+    }
+    return out;
+  }
+
+  function dims(mode) { return (mode === 'rgbxy' || mode === 'labxy') ? 5 : 3; }
+
+  // 在原图里等距抽样 n 个像素，构造 (n × d) 的特征矩阵（Float32Array 扁平存放）
+  // 为什么要抽样：k-means 的每次迭代是 O(n·k·d)，整图几百万像素没必要全上。
+  //   等价库：sklearn.cluster.MiniBatchKMeans（思想相同：用样本子集迭代）；
+  //           本页做法 = 均匀步长抽样，sklearn 的 MiniBatchKMeans 是随机小批量
+  function buildFeatures(work, mode, weight, sampleSize) {
+    const w = work.w, h = work.h, data = work.data;
+    const total = w * h;
+    const d = dims(mode);
+    const n = Math.max(1, Math.min(sampleSize | 0, total));
+    const points = new Float32Array(n * d);
+    const index = new Int32Array(n);
+    const stepPx = total / n;
+    const tmp = new Float64Array(d);
+    for (let i = 0; i < n; i++) {
+      const p = Math.min(total - 1, Math.floor(i * stepPx + stepPx * 0.5));  // 每个区间的中点
+      index[i] = p;
+      const x = p % w, y = (p / w) | 0;
+      encodePixel(data, p * 4, mode, x, y, w, h, weight, tmp);
+      for (let j = 0; j < d; j++) points[i * d + j] = tmp[j];
+    }
+    return { points: points, n: n, d: d, total: total, index: index, mode: mode, weight: weight };
+  }
+
+  // 用训练好的质心给"整张工作图"的每个像素打标签（等价 sklearn 的 km.predict(X)）
+  // 复杂度 O(W·H·k·d)，这一步通常比迭代本身还慢，所以放在最后一次性做。
+  function assignAll(work, centroids, k, d, mode, weight) {
+    const w = work.w, h = work.h, data = work.data;
+    const labels = new Int32Array(w * h);
+    const tmp = new Float64Array(d);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = y * w + x;
+        encodePixel(data, p * 4, mode, x, y, w, h, weight, tmp);
+        let best = 0, bestD = Infinity;
+        for (let c = 0; c < k; c++) {
+          let s = 0;
+          const base = c * d;
+          for (let j = 0; j < d; j++) { const t = tmp[j] - centroids[base + j]; s += t * t; }
+          if (s < bestD) { bestD = s; best = c; }
+        }
+        labels[p] = best;
+      }
+    }
+    return labels;
+  }
+
+  // 质心 → 它在屏幕上该显示的 RGB 颜色（Lab 模式要转回 sRGB）
+  function centroidToRgb(centroids, c, d, mode) {
+    const base = c * d;
+    if (mode === 'lab' || mode === 'labxy') {
+      return labToRgb(centroids[base] * 100, centroids[base + 1] * 255 - 128, centroids[base + 2] * 255 - 128);
+    }
+    return [
+      Math.max(0, Math.min(255, Math.round(centroids[base] * 255))),
+      Math.max(0, Math.min(255, Math.round(centroids[base + 1] * 255))),
+      Math.max(0, Math.min(255, Math.round(centroids[base + 2] * 255)))
+    ];
+  }
+
+  return {
+    rgbToLab: rgbToLab,
+    labToRgb: labToRgb,
+    encodePixel: encodePixel,
+    dims: dims,
+    buildFeatures: buildFeatures,
+    assignAll: assignAll,
+    centroidToRgb: centroidToRgb
+  };
+}
+
+/* ============================================================================
+ *  第三部分：库对照代码片段（纯展示，不执行）
+ * ========================================================================== */
+const LIB_SNIPPETS = [
+  {
+    id: 'opencvjs', title: '浏览器 · OpenCV.js',
+    code:
+`// 引入：<script async src="https://docs.opencv.org/4.x/opencv.js"><\/script>
+// OpenCV.js 内置 k-means，等价于本页 KMeansModule.runKMeans()。
+let K = 8, N = samples.length / 3;
+
+// 必须是 CV_32F（单精度浮点）矩阵，形状 N×3
+let data       = cv.matFromArray(N, 3, cv.CV_32F, samples);   // samples 是扁平的 RGB 数组
+let bestLabels = new cv.Mat(N, 1, cv.CV_32S);                 // 输出①：每个像素的簇编号 = 本页 labels
+let centers    = new cv.Mat();                                // 输出②：K×3 质心           = 本页 centroids
+
+// 收敛判据，等价于 "maxIter=20, tol=0.1"
+let criteria = new cv.TermCriteria(
+  cv.TermCriteria_EPS + cv.TermCriteria_MAX_ITER, 20, 0.1);
+
+// attempts = 5 等价于 sklearn n_init=5；KMEANS_PP_CENTERS 就是 k-means++
+let compactness = cv.kmeans(data, K, bestLabels, criteria, 5,
+                            cv.KMEANS_PP_CENTERS, centers);
+// compactness == 本页 inertia（SSE）
+
+// 给整图上色 = 本页 assignAll()：直接用 centers 做最近邻
+data.delete(); bestLabels.delete(); centers.delete();
+
+// Python 版更简单（返回值直接给齐）：
+//   compactness, labels, centers = cv2.kmeans(Z, 8, None, criteria, 5, cv2.KMEANS_PP_CENTERS)`
+  },
+  {
+    id: 'mlkmeans', title: '浏览器/Node · ml-kmeans (npm)',
+    code:
+`import { kmeans, kmeansGenerator } from 'ml-kmeans';   // npm i ml-kmeans
+
+const data = [[1,1,1],[1,2,1],[-1,-1,-1],[-1,-1,-1.5]];   // 本页 points 的数组形式
+
+const result = kmeans(data, 2, {
+  initialization: 'kmeans++',   // 本页 init:'kmeans++'；另有 'random' | 'mostDistant' | 自定义质心
+  maxIterations: 100,           // 本页 maxIterations
+  tolerance: 1e-6,              // 本页 tolerance
+  seed: 42                      // 本页 seed（可复现）
+});
+
+result.clusters;                 // 每个点的簇编号 = 本页 labels
+result.centroids;                // 质心          = 本页 centroids
+result.iterations;               // 迭代次数
+result.converged;                // 是否收敛
+result.computeInformation(data); // [{centroid, error, size}] —— error 用来算 SSE
+result.nearest([[1,2,1]]);       // 新数据分配 = 本页 assignAll()
+// 想逐步观察迭代过程（本页的动画就类似这样）：
+for (const step of kmeansGenerator(data, 2)) console.log(step.iterations);`
+  },
+  {
+    id: 'sklearn', title: 'Python · scikit-learn',
+    code:
+`import numpy as np
+from PIL import Image
+from sklearn.cluster import KMeans, MiniBatchKMeans
+from sklearn.metrics import silhouette_score
+
+img = np.asarray(Image.open('photo.jpg').convert('RGB'))
+h, w, _ = img.shape
+
+# 预处理 = 本页 buildFeatures()：拉平成 (N,3)，缩放到 0..1
+X = img.reshape(-1, 3).astype(np.float32) / 255.0
+
+km = KMeans(
+    n_clusters=8,          # K
+    init='k-means++',      # 本页 init:'kmeans++'
+    n_init=10,             # 跑 10 组初始化取 inertia 最小的（= OpenCV attempts）
+    max_iter=100,          # 本页 maxIterations
+    tol=1e-4,              # 本页 tolerance
+    random_state=42,       # 本页 seed
+    algorithm='lloyd').fit(X)
+
+km.labels_            # 每个像素的簇编号      = 本页 labels
+km.cluster_centers_   # 质心                 = 本页 centroids
+km.inertia_           # SSE                  = 本页 inertia
+km.n_iter_            # 迭代次数
+silhouette_score(X[:5000], km.labels_[:5000])   # = 本页 silhouette()
+
+# 输出量化图（本页"调色板量化"）
+palette = (km.cluster_centers_ * 255).round().astype(np.uint8)
+quant   = palette[km.labels_].reshape(h, w, 3)
+Image.fromarray(quant).save('kmeans_quantized.png')
+
+# 颜色+位置（本页 rgbxy 模式）：把归一化坐标乘空间权重后拼到颜色后面
+ys, xs = np.mgrid[0:h, 0:w]
+pos = np.stack([xs / (w - 1), ys / (h - 1)], -1).reshape(-1, 2) * 0.8
+km2 = KMeans(n_clusters=8, init='k-means++', n_init=10, random_state=42).fit(np.hstack([X, pos]))
+
+# 大图/大数据：MiniBatchKMeans 才是对应"抽样迭代"的做法（= 本页 sample 参数）
+mb = MiniBatchKMeans(n_clusters=8, batch_size=6000, n_init=10, random_state=42).fit(X)
+
+# Lab 空间（本页 lab 模式）
+from skimage import color
+Xlab = color.rgb2lab(img.reshape(-1, 3).reshape(h, w, 3)[..., :3] / 255.0).reshape(-1, 3)`
+  },
+  {
+    id: 'cv2', title: 'Python · OpenCV (cv2)',
+    code:
+`import cv2, numpy as np
+
+img = cv2.imread('photo.jpg')[:, :, ::-1]          # BGR -> RGB
+Z = img.reshape((-1, 3)).astype(np.float32)        # 必须是 float32，形状 (N,3)
+
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 0.1)
+# 参数顺序：data, K, bestLabels(None 表示不传), criteria, attempts, flags
+compactness, labels, centers = cv2.kmeans(
+    Z, 8, None, criteria, 5, cv2.KMEANS_PP_CENTERS)
+
+compactness                                   # = 本页 inertia（SSE）
+labels.ravel()                                # = 本页 labels
+centers                                       # = 本页 centroids（K×3 float32）
+quant = centers[labels.flatten()].reshape(img.shape).astype(np.uint8)   # 量化图
+
+# 注意：OpenCV 的 k-means 只支持欧氏距离；想自定义距离（如 Lab+空间距离）就用
+# scipy/sklearn 或自己写（本页 rank 距离函数就是 sqDist 这一处）`
+  },
+  {
+    id: 'scipy', title: 'Python · SciPy',
+    code:
+`import numpy as np
+from scipy.cluster.vq import kmeans2, kmeans
+
+X = data.astype(np.float64)              # (N,3)
+
+# kmeans2 = 完整版 k-means（带 k-means++ 播种、空簇策略）
+centroids, labels = kmeans2(
+    X, 8,
+    iter=100,            # 迭代轮数（= 本页 maxIterations）
+    minit='++',          # '++' = k-means++；另有 'random' | 'points' | 'matrix'
+    missing='warn',      # 空簇怎么办：'warn' 忽略 / 'raise' 报错
+    seed=42)             # 可复现（新版本参数名是 rng）
+# centroids = 本页 centroids，labels = 本页 labels
+
+# kmeans 是简化版：只返回质心 + 平均畸变（distortion），需要自己再分配标签
+codebook, distortion = kmeans(X, 8, iter=20, thresh=1e-5)
+labels = ((X[:, None, :] - codebook[None]) ** 2).sum(-1).argmin(1)   # = 本页 assign()
+sse = ((X - codebook[labels]) ** 2).sum()                            # = 本页 inertia`
+  },
+  {
+    id: 'torch', title: 'Python · PyTorch（GPU 向量化）',
+    code:
+`import torch
+
+X = torch.as_tensor(pixels, dtype=torch.float32, device='cuda')     # (N,3)
+k = 8
+
+# 初始化：k-means++ 在 torch 里没有内置实现，这里用随机取点（或移植本页 initKMeansPlusPlus）
+C = X[torch.randperm(len(X), device=X.device)[:k]].clone()
+
+for it in range(100):
+    d2 = torch.cdist(X, C) ** 2          # (N,K) 平方欧氏距离，GPU 上很快
+    labels = d2.argmin(1)                # 分配步 = 本页 assign()
+    inertia = d2.min(1).values.sum()     # = 本页 inertia
+    # 更新步 = 本页 update()：用 scatter_add 求每簇均值
+    sums = torch.zeros(k, X.shape[1], device=X.device).index_add_(0, labels, X)
+    cnt  = torch.bincount(labels, minlength=k).clamp(min=1).unsqueeze(1)
+    C_new = sums / cnt
+    # 空簇处理：count==0 的簇保留旧质心（或照本页做法抢一个最远点）
+    empty = torch.bincount(labels, minlength=k) == 0
+    C_new[empty] = C[empty]
+    if torch.allclose(C_new, C, atol=1e-4):   # 本页 tol
+        C = C_new; break
+    C = C_new
+
+labels, C, inertia`
+  },
+  {
+    id: 'faiss', title: 'Python · FAISS（百万级/GPU）',
+    code:
+`import faiss, numpy as np
+
+X = pixels.astype('float32')          # (N,3)，N 可以是上千万
+
+km = faiss.Kmeans(
+    d=3, k=8,
+    niter=100,        # 迭代次数 = 本页 maxIterations
+    nredo=5,          # 用 5 组初始化取最优 = sklearn n_init
+    verbose=True,
+    seed=42,
+    gpu=True)         # 有 CUDA 就开 GPU
+
+km.train(X)                    # 训练；km.centroids 就是质心 = 本页 centroids
+D, I = km.index.search(X, 1)   # 每个点到最近质心的距离/编号 = 本页 labels
+inertia = float((D ** 2).sum())  # FAISS 的 index 是 L2，D 已是欧氏距离 → 平方即 SSE
+
+# RAPIDS cuML 版本（API 几乎等同 sklearn，直接跑在 GPU 上）：
+# from cuml.cluster import KMeans as cuKMeans
+# km = cuKMeans(n_clusters=8, init='k-means++', max_iter=100, random_state=42)
+# labels = km.fit_predict(X_gpu)`
+  },
+  {
+    id: 'tfjs', title: '浏览器 · TensorFlow.js（无内置，向量化自写）',
+    code:
+`// TF.js 没有内置 k-means。但要把它"搬到 GPU 上向量化"，只改写分配/更新两步：
+const X = tf.tensor2d(samples);          // (N,3)
+let C = tf.tensor2d(initCentroids);      // (K,3)，可用本页 initKMeansPlusPlus 的结果
+
+for (let it = 0; it < 100; it++) {
+  // ‖x−c‖² = ‖x‖² − 2·x·cᵀ + ‖c‖²   —— 一次矩阵乘法算完 N×K 距离，替代本页的双层循环
+  const d2 = tf.sub(
+      tf.add(tf.matMul(X, C, false, true).mul(-2),
+             tf.sum(C.square(), 1).expandDims(0)),
+      tf.sum(X.square(), 1).expandDims(1).neg());
+  const labels = d2.argMin(1);                    // 分配步
+
+  const mask = tf.oneHot(labels, k);              // (N,K) one-hot
+  const sums = tf.matMul(mask, X, true, false);   // (K,3) 各簇求和
+  const cnt  = tf.sum(mask, 0).expandDims(1).maximum(1);
+  C = sums.div(cnt);                              // 更新步 = 本页 update()
+
+  const inertia = d2.min(1).sum().dataSync()[0];  // = 本页 inertia
+  // 收敛判据：对比上一轮质心位移（本页 tol）
+}`
+  },
+  {
+    id: 'matlab', title: 'MATLAB',
+    code:
+`img = im2double(imread('photo.jpg'));        % H×W×3, 0..1
+[h, w, ~] = size(img);
+X = reshape(img, h*w, 3);                    % (N,3) = 本页 points
+
+[idx, C, sumd, D] = kmeans(X, 8, ...
+    'Distance',   'sqeuclidean', ...         % 本页 sqDist
+    'Start',      'plus', ...                % 'plus' = k-means++ 播种
+    'Replicates', 5, ...                     % = n_init / attempts
+    'MaxIter',    100, ...                   % 本页 maxIterations
+    'Display',    'iter');
+
+% idx  = 本页 labels
+% C    = 本页 centroids
+% sum(sumd) = 本页 inertia（各簇内平方和之和）
+
+quant = reshape(C(idx, :), h, w, 3);         % 量化图
+imwrite(quant, 'kmeans_quantized.png');
+% 颜色+位置（本页 rgbxy 模式）：
+% [xx, yy] = meshgrid(0:w-1, 0:h-1);
+% X2 = [X, 0.8*xx(:)/(w-1), 0.8*yy(:)/(h-1)];
+% idx2 = kmeans(X2, 8, 'Start', 'plus', 'Replicates', 5);`
+  },
+  {
+    id: 'r', title: 'R',
+    code:
+`X <- matrix(rnorm(3000), ncol = 3)          # 你的 N×3 像素矩阵（0..1）
+
+km <- kmeans(X, centers = 8,
+             iter.max = 100,                # 本页 maxIterations
+             nstart  = 25,                  # 25 组随机初始化取最优 = n_init
+             algorithm = "Lloyd")           # "Hartigan-Wong" | "Lloyd" | "MacQueen"
+
+km$cluster         # 每个点的簇编号 = 本页 labels
+km$centers         # 质心          = 本页 centroids
+km$tot.withinss    # 簇内平方和    = 本页 inertia
+km$size            # 各簇点数
+
+# 注意：R 的 kmeans 没有内置 k-means++，'Hartigan-Wong' 也不等价于 Lloyd；
+# 想完全对齐就 algorithm="Lloyd" + 多组 nstart 近似。`
+  },
+  {
+    id: 'pillow', title: 'Python · Pillow（同目的，但不是 k-means）',
+    code:
+`from PIL import Image
+
+im = Image.open('photo.jpg').convert('RGB')
+
+# 目的同样是"减色到 8 色"，但算法是中位切分 / 八叉树，不是 k-means：
+q = im.convert('P', palette=Image.ADAPTIVE, colors=8)     # 自适应调色板
+q.save('palette8_mediancut.png')
+im.quantize(colors=8, method=Image.MEDIANCUT, dither=Image.NONE).save('mc.png')
+
+# 想要严格 k-means 的结果，就用上面 sklearn / cv2 的写法自己算完再 Image.fromarray(...)
+# 浏览器里等价的小工具：pngquant / imagemin-pngquant（同样不是 k-means）`
+  }
+];
+
+/* ============================================================================
+ *  第四部分：页面逻辑（加载图片 → 抽样 → 聚类动画 → 渲染/导出）
+ * ========================================================================== */
+(function () {
+  'use strict';
+
+  const KMeans = KMeansModule();
+  const FE = FeatureModule();
+
+  const $ = function (id) { return document.getElementById(id); };
+  const els = {
+    drop: $('drop'), file: $('file'), mode: $('mode'), k: $('k'), weight: $('weight'),
+    init: $('init'), seed: $('seed'), maxIter: $('maxIter'), tol: $('tol'),
+    side: $('side'), sample: $('sample'), out: $('out'), edges: $('edges'), live: $('live'),
+    run: $('run'), stop: $('stop'),
+    cvOrig: $('cvOrig'), cvOut: $('cvOut'), origSize: $('origSize'), outSize: $('outSize'),
+    outTitle: $('outTitle'),
+    sK: $('sK'), sIter: $('sIter'), sInertia: $('sInertia'), sSil: $('sSil'), sTime: $('sTime'), sConv: $('sConv'),
+    palette: $('palette'), bars: $('bars'), chart: $('chart'), log: $('log'),
+    dlPng: $('dlPng'), dlJson: $('dlJson'), copyPal: $('copyPal'),
+    vMode: $('vMode'), vK: $('vK'), vW: $('vW'), vInit: $('vInit'), vSide: $('vSide'), vSample: $('vSample'),
+    wWrap: $('wWrap')
+  };
+
+  const state = {
+    source: null,      // 原始图片/画布
+    work: null,        // { w, h, data: Uint8ClampedArray(RGBA) }
+    step: null,        // 当前 k-means 分步执行器
+    feat: null, cfg: null, t0: 0,
+    result: null,      // { labels, palette, counts, ... }
+    raf: 0, token: 0, running: false
+  };
+
+  // ---------------------------------------------------------------- 日志/工具
+  function log(msg, cls) {
+    const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    els.log.innerHTML += (els.log.dataset.init ? '\n' : '') +
+      '<span style="color:#5f7185">[' + t + ']</span> ' + (cls ? '<b>' + msg + '</b>' : escapeHtml(msg));
+    els.log.dataset.init = '1';
+    els.log.scrollTop = els.log.scrollHeight;
+  }
+  function logReset(msg) {
+    els.log.dataset.init = '';
+    els.log.innerHTML = '';
+    log(msg, true);
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  function hex(rgb) {
+    return '#' + rgb.map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+  }
+  function fmt(n, p) {
+    if (!isFinite(n)) return '—';
+    return n.toLocaleString('en-US', { maximumFractionDigits: p === undefined ? 1 : p });
+  }
+  function debounce(fn, ms) {
+    let t = 0;
+    return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+  }
+
+  // ---------------------------------------------------------------- 图片载入
+  function prepareWork() {
+    const src = state.source;
+    const iw = src.naturalWidth || src.width;
+    const ih = src.naturalHeight || src.height;
+    const maxSide = +els.side.value;
+    const scale = Math.min(1, maxSide / Math.max(iw, ih));
+    const w = Math.max(8, Math.round(iw * scale));
+    const h = Math.max(8, Math.round(ih * scale));
+
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(src, 0, 0, w, h);
+    try {
+      state.work = { w: w, h: h, data: g.getImageData(0, 0, w, h).data };
+    } catch (err) {
+      // 个别浏览器会把"从本地磁盘读来的图片"当成跨域，拒绝读像素。
+      // 页面内置的示例图是程序画出来的 canvas，不受影响。
+      logReset('无法读取这张图片的像素：' + (err && err.message ? err.message : err));
+      log('浏览器把该图片判为跨域（画布被污染）。解决办法：① 用示例图；' +
+          '② 在本目录起一个本地服务器（如 python -m http.server）再用 http:// 打开；' +
+          '③ 换 Chrome/Edge 打开。', true);
+      return;
+    }
+
+    els.cvOrig.width = w; els.cvOrig.height = h;
+    els.cvOut.width = w; els.cvOut.height = h;
+    els.cvOrig.getContext('2d').drawImage(src, 0, 0, w, h);
+    els.origSize.textContent = iw + '×' + ih + ' → ' + w + '×' + h;
+    els.outSize.textContent = w + '×' + h;
+    // 清空上一次结果
+    els.cvOut.getContext('2d').clearRect(0, 0, w, h);
+    state.result = null;
+    ['dlPng', 'dlJson', 'copyPal'].forEach(function (id) { els[id].disabled = true; });
+    els.run.disabled = false;
+  }
+
+  function setSource(src, name) {
+    state.source = src;
+    prepareWork();
+    logReset('已载入' + (name ? '「' + name + '」' : '图片') + '：工作分辨率 ' + state.work.w + '×' + state.work.h +
+             '（' + fmt(state.work.w * state.work.h, 0) + ' 像素）');
+    run();
+  }
+
+  function loadFile(file) {
+    if (!file || !/^image\//.test(file.type)) { log('不是图片文件：' + (file && file.name)); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = function () { setSource(img, file.name); URL.revokeObjectURL(url); };
+    img.onerror = function () { log('图片解码失败：' + file.name); URL.revokeObjectURL(url); };
+    img.src = url;
+  }
+
+  // 程序生成的示例图（方便离线试玩，不用找素材）
+  function demoImage(kind) {
+    const w = 560, h = 380, c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    if (kind === 'blocks') {
+      g.fillStyle = '#f2f4f8'; g.fillRect(0, 0, w, h);
+      const cols = ['#e94f37', '#3f88c5', '#f6ae2d', '#2a9d8f', '#7b2cbf', '#ff8fab'];
+      for (let i = 0; i < 12; i++) {
+        g.fillStyle = cols[i % cols.length];
+        const x = (i % 4) * 140, y = Math.floor(i / 4) * 126;
+        if (i % 2) g.fillRect(x + 10, y + 10, 120, 106);
+        else { g.beginPath(); g.arc(x + 70, y + 63, 56, 0, 6.2832); g.fill(); }
+      }
+    } else if (kind === 'rings') {
+      const g2 = g.createRadialGradient(w / 2, h / 2, 10, w / 2, h / 2, 260);
+      const cols = ['#fff3b0', '#f4a261', '#e76f51', '#8e44ad', '#264653', '#2a9d8f', '#e9c46a'];
+      cols.forEach(function (col, i) { g2.addColorStop(i / (cols.length - 1), col); });
+      g.fillStyle = g2; g.fillRect(0, 0, w, h);
+      g.globalAlpha = 0.25;
+      for (let r = 40; r < 320; r += 46) {
+        g.beginPath(); g.arc(w / 2 + 30, h / 2 - 10, r, 0, 6.2832);
+        g.strokeStyle = r % 3 ? '#ffffff' : '#000000'; g.lineWidth = 9; g.stroke();
+      }
+      g.globalAlpha = 1;
+    } else {
+      // 风景：天空渐变 + 日落 + 山 + 地面
+      const sky = g.createLinearGradient(0, 0, 0, h * 0.65);
+      sky.addColorStop(0, '#1b3a6b'); sky.addColorStop(0.55, '#e07a5f'); sky.addColorStop(1, '#f2cc8f');
+      g.fillStyle = sky; g.fillRect(0, 0, w, h * 0.65);
+      g.fillStyle = '#ffe8a3';
+      g.beginPath(); g.arc(w * 0.72, h * 0.42, 46, 0, 6.2832); g.fill();
+      g.fillStyle = '#3d405b';
+      g.beginPath(); g.moveTo(0, h * 0.66);
+      [[70, 200], [160, 120], [250, 210], [340, 140], [430, 215], [520, 170], [560, 205]].forEach(function (p) {
+        g.lineTo(p[0], p[1] + h * 0.28);
+      });
+      g.lineTo(w, h * 0.66); g.closePath(); g.fill();
+      g.fillStyle = '#6b8f71'; g.fillRect(0, h * 0.66, w, h * 0.34);
+      g.fillStyle = 'rgba(255,255,255,.13)';
+      g.beginPath(); g.arc(w * 0.3, h * 0.8, 90, 0, 6.2832); g.fill();
+    }
+    // 加一点噪声，避免"人工图太好分"的错觉
+    const id = g.getImageData(0, 0, w, h);
+    for (let i = 0; i < id.data.length; i += 4) {
+      const n = (Math.random() - 0.5) * 16;
+      id.data[i] += n; id.data[i + 1] += n; id.data[i + 2] += n;
+    }
+    g.putImageData(id, 0, 0);
+    return c;
+  }
+
+  // ---------------------------------------------------------------- 运行 / 动画
+  function readConfig() {
+    return {
+      mode: els.mode.value,
+      k: Math.max(2, Math.min(16, +els.k.value)),
+      weight: +els.weight.value,
+      init: els.init.value,
+      seed: (+els.seed.value) | 0,
+      maxIter: Math.max(1, Math.min(500, +els.maxIter.value)),
+      tol: Math.max(0, +els.tol.value),
+      sampleSize: +els.sample.value,
+      out: els.out.value,
+      edges: els.edges.checked,
+      live: els.live.checked
+    };
+  }
+
+  function run() {
+    if (!state.work) return;
+    cancelAnimationFrame(state.raf);
+    state.token++;
+    state.running = true;
+    els.run.disabled = true; els.stop.disabled = false;
+
+    const cfg = readConfig();
+    const t0 = performance.now();
+    const feat = FE.buildFeatures(state.work, cfg.mode, cfg.weight, cfg.sampleSize);
+
+    logReset('开始：K=' + cfg.k + ' · 特征=' + cfg.mode + '（' + feat.d + ' 维）· 初始化=' + cfg.init +
+             ' · seed=' + cfg.seed);
+    log('采样 ' + fmt(feat.n, 0) + ' / ' + fmt(feat.total, 0) + ' 像素参与拟合；' +
+        '每次迭代成本 O(n·k·d) = ' + fmt(feat.n * cfg.k * feat.d, 0) + ' 次乘加');
+
+    state.cfg = cfg; state.feat = feat; state.t0 = t0;
+    state.step = KMeans.createStepper(feat.points, feat.n, feat.d, cfg.k, {
+      init: cfg.init, seed: cfg.seed, maxIterations: cfg.maxIter, tolerance: cfg.tol,
+      log: function (m) { log('  · ' + m); }
+    });
+    state.result = null;
+
+    const token = state.token;
+    function frame() {
+      if (token !== state.token) return;                 // 被新任务取消
+      const deadline = performance.now() + 14;           // 每帧最多算 14ms，保证界面不卡
+      let done = false;
+      do { done = state.step.step(); } while (!done && performance.now() < deadline);
+      liveStats();
+      if (cfg.live) renderOutput(true);
+      if (!done) { state.raf = requestAnimationFrame(frame); }
+      else { finalize(token); }
+    }
+    state.raf = requestAnimationFrame(frame);
+  }
+
+  function stop() {
+    cancelAnimationFrame(state.raf);
+    state.token++;
+    state.running = false;
+    els.run.disabled = !state.work; els.stop.disabled = true;
+    if (state.step && !state.step.isDone()) log('已手动停止（当前第 ' + state.step.iteration + ' 次迭代）');
+  }
+
+  // 迭代过程中的实时指标（便宜：只算 K 个质心的颜色）
+  function liveStats() {
+    const st = state.step, cfg = state.cfg;
+    if (!st || !st.centroids) return;
+    els.sK.textContent = st.k + ' / ' + state.feat.d + 'D';
+    els.sIter.textContent = st.iteration + (st.isDone() ? '（结束）' : ' …');
+    els.sInertia.textContent = fmt(st.inertia, 1);
+    els.sConv.textContent = st.isDone() ? '—' : '迭代中';
+    renderPalette(st.centroids, null, true);
+  }
+
+  function finalize(token) {
+    if (token !== state.token) return;
+    const st = state.step, cfg = state.cfg, feat = state.feat;
+    const res = st.result();
+
+    // 全图分配标签：这一步才是"给每个像素分类"
+    const tA = performance.now();
+    const labelsFull = FE.assignAll(state.work, res.centroids, res.k, res.d, cfg.mode, cfg.weight);
+    const tAssign = performance.now() - tA;
+
+    // 各簇颜色 & 占比（按整图像素统计，而不是抽样）
+    const countsFull = new Int32Array(res.k);
+    for (let i = 0; i < labelsFull.length; i++) countsFull[labelsFull[i]]++;
+    const palette = [];
+    for (let c = 0; c < res.k; c++) {
+      const rgb = FE.centroidToRgb(res.centroids, c, res.d, cfg.mode);
+      palette.push({ c: c, rgb: rgb, hex: hex(rgb), count: countsFull[c], ratio: countsFull[c] / labelsFull.length });
+    }
+    palette.sort(function (a, b) { return b.count - a.count; });
+
+    // 轮廓系数（抽样估计；在抽样特征上算，指标含义与 sklearn 一致）
+    const sil = KMeans.silhouette(feat.points, feat.n, feat.d, res.labels, res.k, 300,
+                                  KMeans.mulberry32(cfg.seed ^ 0x9e37));
+
+    state.result = {
+      labels: labelsFull, palette: palette, k: res.k, d: res.d,
+      inertia: res.inertia, iterations: res.iterations, converged: res.converged,
+      silhouette: sil, history: res.history, centroids: res.centroids,
+      countsSample: res.counts, tAssign: tAssign
+    };
+
+    const elapsed = performance.now() - state.t0;
+    els.sK.textContent = res.k + ' / ' + res.d + 'D';
+    els.sIter.textContent = res.iterations;
+    els.sInertia.textContent = fmt(res.inertia, 1);
+    els.sSil.textContent = isFinite(sil) ? sil.toFixed(3) : '—';
+    els.sTime.textContent = elapsed.toFixed(0) + ' ms';
+    els.sConv.textContent = res.converged ? '是（' + res.iterations + ' 轮）' : '否（达上限）';
+
+    renderOutput(false);
+    renderPalette(res.centroids, palette, false);
+    renderBars(palette);
+    drawChart(res.history);
+
+    log('收敛：' + (res.converged ? '是' : '否，达到最大迭代 ' + cfg.maxIter) +
+        ' · 迭代 ' + res.iterations + ' 次 · inertia=' + fmt(res.inertia, 2));
+    log('全图像素分配（' + fmt(labelsFull.length, 0) + ' 个）耗时 ' + tAssign.toFixed(0) + ' ms');
+    log('轮廓系数（300 点抽样估计）=' + (isFinite(sil) ? sil.toFixed(4) : '不可用') +
+        '〔越接近 1 越好，<0 说明分得比随机还差〕');
+    log('完成，总耗时 ' + elapsed.toFixed(0) + ' ms。');
+
+    ['dlPng', 'dlJson', 'copyPal'].forEach(function (id) { els[id].disabled = false; });
+    state.running = false;
+    els.run.disabled = false; els.stop.disabled = true;
+  }
+
+  // ---------------------------------------------------------------- 渲染
+  function renderOutput(fast) {
+    const st = state.step, cfg = state.cfg, work = state.work;
+    if (!st || !st.centroids) return;
+    const w = work.w, h = work.h;
+    const ctx = els.cvOut.getContext('2d');
+
+    if (fast) {   // 实时预览：只在抽样点位置上色（便宜），用小块表示
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(state.source, 0, 0, w, h);
+      ctx.globalAlpha = 0.85;
+      const feat = state.feat;
+      const size = Math.max(1, Math.round(Math.sqrt(feat.total / 12000)));
+      for (let i = 0; i < feat.n; i++) {
+        const rgb = FE.centroidToRgb(st.centroids, st.labels[i], feat.d, cfg.mode);
+        const p = feat.index[i];
+        ctx.fillStyle = 'rgb(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ')';
+        ctx.fillRect(p % w, (p / w) | 0, size, size);
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    const res = state.result;
+    if (!res) return;
+    const out = ctx.createImageData(w, h);
+    const labels = res.labels;
+    const cols = res.palette.map(function (p) { return p.rgb; });
+    for (let p = 0; p < w * h; p++) {
+      const c = labels[p];
+      const rgb = cols[c];
+      const o = p * 4;
+      out.data[o] = rgb[0]; out.data[o + 1] = rgb[1]; out.data[o + 2] = rgb[2]; out.data[o + 3] = 255;
+    }
+    // 簇边界：与右/下邻居标签不同 → 画深色像素（SLIC 可视化里常见的做法）
+    if (cfg.edges) {
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const p = y * w + x, l = labels[p];
+          const edge = (x + 1 < w && labels[p + 1] !== l) || (y + 1 < h && labels[p + w] !== l);
+          if (edge) {
+            const o = p * 4;
+            out.data[o] = 20; out.data[o + 1] = 24; out.data[o + 2] = 30;
+          }
+        }
+      }
+    }
+    ctx.putImageData(out, 0, 0);
+
+    // 输出模式②：原图 + 边界 → 在结果上再叠一层原图
+    if (cfg.out === 'orig') {
+      ctx.globalAlpha = cfg.edges ? 0.55 : 1;
+      ctx.drawImage(state.source, 0, 0, w, h);
+      ctx.globalAlpha = 1;
+    }
+    els.outTitle.textContent = cfg.out === 'orig' ? '原图 + 簇边界（K=' + res.k + '）'
+                                                  : '调色板量化结果（K=' + res.k + '）';
+  }
+
+  function renderPalette(centroids, palette, live) {
+    if (live) {
+      let html = '';
+      for (let c = 0; c < state.step.k; c++) {
+        const rgb = FE.centroidToRgb(centroids, c, state.feat.d, state.cfg.mode);
+        html += '<span class="sw"><i style="background:' + hex(rgb) + '"></i>' + hex(rgb) + '</span>';
+      }
+      els.palette.innerHTML = html;
+      return;
+    }
+    els.palette.innerHTML = palette.map(function (p) {
+      return '<span class="sw" title="点击复制 ' + p.hex + '" data-hex="' + p.hex + '">' +
+             '<i style="background:' + p.hex + '"></i>簇 ' + p.c + ' · ' + p.hex +
+             ' <small>' + (p.ratio * 100).toFixed(1) + '%</small></span>';
+    }).join('');
+  }
+
+  function renderBars(palette) {
+    els.bars.innerHTML = palette.map(function (p) {
+      return '<div class="bar"><span>' + p.hex + '</span>' +
+             '<span class="track"><span class="fill" style="width:' + Math.max(1, p.ratio * 100) +
+             '%;background:' + p.hex + '"></span></span>' +
+             '<span class="n">' + fmt(p.count, 0) + ' px</span></div>';
+    }).join('');
+  }
+
+  // inertia 随迭代下降的曲线（也可以当"手肘法"的原料：改 K 重跑，比较最终 inertia）
+  function drawChart(history) {
+    const cv = els.chart, ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    if (!history || history.length < 2) return;
+    const vals = history.map(function (h) { return h.inertia; });
+    const lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    const pad = 26;
+    ctx.strokeStyle = '#2b3444'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, 8); ctx.lineTo(pad, H - 18); ctx.lineTo(W - 8, H - 18); ctx.stroke();
+    ctx.fillStyle = '#5f7185'; ctx.font = '11px Consolas,monospace';
+    ctx.fillText('inertia', 4, 16);
+    ctx.fillText(fmt(hi, 0), 2, 14);
+    ctx.fillText(fmt(lo, 0), 2, H - 22);
+    ctx.fillText('iteration', W - 62, H - 5);
+
+    const X = function (i) { return pad + (W - pad - 20) * (i / (history.length - 1)); };
+    const Y = function (v) { return 8 + (H - 30) * (1 - (v - lo) / Math.max(1e-9, hi - lo)); };
+    ctx.strokeStyle = '#5b9dff'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    history.forEach(function (h, i) { i ? ctx.lineTo(X(i), Y(h.inertia)) : ctx.moveTo(X(i), Y(h.inertia)); });
+    ctx.stroke();
+    ctx.fillStyle = '#39d3a3';
+    history.forEach(function (h, i) { ctx.beginPath(); ctx.arc(X(i), Y(h.inertia), 2.6, 0, 6.2832); ctx.fill(); });
+  }
+
+  // ---------------------------------------------------------------- 导出
+  function download(name, blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+  function copyText(text, okMsg) {
+    const done = function () { log(okMsg); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(); });
+    } else fallback();
+    function fallback() {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { log('复制失败，请手动选择文本'); }
+      ta.remove();
+    }
+  }
+
+  // ---------------------------------------------------------------- 事件绑定
+  els.drop.addEventListener('click', function () { els.file.click(); });
+  els.file.addEventListener('change', function (e) { if (e.target.files[0]) loadFile(e.target.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (t) {
+    els.drop.addEventListener(t, function (e) { e.preventDefault(); els.drop.classList.add('hot'); });
+  });
+  ['dragleave', 'drop'].forEach(function (t) {
+    els.drop.addEventListener(t, function (e) { e.preventDefault(); els.drop.classList.remove('hot'); });
+  });
+  els.drop.addEventListener('drop', function (e) {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) loadFile(f);
+  });
+  window.addEventListener('drop', function (e) { e.preventDefault(); });
+  window.addEventListener('paste', function (e) {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image') === 0) { loadFile(items[i].getAsFile()); break; }
+    }
+  });
+  document.querySelectorAll('[data-demo]').forEach(function (b) {
+    b.addEventListener('click', function () { setSource(demoImage(b.dataset.demo), '示例图-' + b.dataset.demo); });
+  });
+
+  els.run.addEventListener('click', run);
+  els.stop.addEventListener('click', stop);
+
+  // 参数联动 + 自动重跑
+  const autorun = debounce(function () { if (state.work) run(); }, 180);
+  function syncLabels() {
+    els.vMode.textContent = els.mode.options[els.mode.selectedIndex].text.replace(/（.*?）/g, '');
+    els.vK.textContent = els.k.value;
+    els.vW.textContent = (+els.weight.value).toFixed(2);
+    els.vInit.textContent = els.init.options[els.init.selectedIndex].text.replace(/（.*?）/g, '');
+    els.vSide.textContent = els.side.value;
+    els.vSample.textContent = els.sample.value;
+    const xy = els.mode.value.indexOf('xy') > 0;
+    els.wWrap.style.opacity = xy ? '1' : '.4';
+    els.weight.disabled = !xy;
+  }
+  ['mode', 'k', 'weight', 'init', 'seed', 'maxIter', 'tol', 'out', 'edges', 'live']
+    .forEach(function (id) { els[id].addEventListener('input', function () { syncLabels(); autorun(); }); });
+  els.side.addEventListener('input', function () { syncLabels(); if (state.source) { prepareWork(); autorun(); } });
+  els.sample.addEventListener('input', function () { syncLabels(); autorun(); });
+  syncLabels();
+
+  els.palette.addEventListener('click', function (e) {
+    const sw = e.target.closest('.sw');
+    if (sw && sw.dataset.hex) copyText(sw.dataset.hex, '已复制颜色 ' + sw.dataset.hex);
+  });
+  els.dlPng.addEventListener('click', function () {
+    const cfg = state.cfg;
+    els.cvOut.toBlob(function (b) {
+      download('kmeans-k' + cfg.k + '-' + cfg.mode + '.png', b);
+      log('已导出 PNG');
+    }, 'image/png');
+  });
+  els.dlJson.addEventListener('click', function () {
+    const r = state.result, cfg = state.cfg;
+    const payload = {
+      algorithm: 'k-means (Lloyd) + k-means++ init, 手写实现',
+      image: { workWidth: state.work.w, workHeight: state.work.h },
+      config: cfg,
+      samplePoints: state.feat.n,
+      featureDimension: r.d,
+      iterations: r.iterations,
+      converged: r.converged,
+      inertia: r.inertia,
+      silhouette: r.silhouette,
+      palette: r.palette.map(function (p) {
+        return { cluster: p.c, hex: p.hex, rgb: p.rgb, pixels: p.count, ratio: +p.ratio.toFixed(5) };
+      })
+    };
+    download('kmeans-k' + cfg.k + '-' + cfg.mode + '.json',
+             new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+    log('已导出 JSON');
+  });
+  els.copyPal.addEventListener('click', function () {
+    copyText(state.result.palette.map(function (p) { return p.hex; }).join('\n'), '已复制调色板 HEX');
+  });
+
+  // ---------------------------------------------------------------- 源码面板
+  // 极简语法高亮：单趟从左到右扫描，注释 / 字符串 / 关键字 / 数字 四选一。
+  // 单趟很关键——分多趟替换时，注释里的撇号会被误当成字符串起点，把整段代码吞成字符串。
+  const HL_PARTS = [
+    '\\/\\/[^\\n]*', '#[^\\n]*',                          // 注释（JS 的 // 和 Python 的 #）
+    "'(?:\\\\.|[^'\\\\])*'", '"(?:\\\\.|[^"\\\\])*"', '`(?:\\\\.|[^`\\\\])*`',   // 字符串
+    '\\b(?:function|return|const|let|var|if|else|for|while|new|class|of|in|typeof|instanceof|break|continue|do|switch|case|default|try|catch|finally|throw|null|undefined|true|false|this|await|async|import|export|def|elif|with|print|print|None|True|False)\\b',
+    '\\b\\d+\\.?\\d*(?:e[+-]?\\d+)?\\b'
+  ];
+  function highlight(src) {
+    const re = new RegExp('(' + HL_PARTS[0] + '|' + HL_PARTS[1] + ')|(' + HL_PARTS[2] + '|' + HL_PARTS[3] + '|' + HL_PARTS[4] + ')|(' + HL_PARTS[5] + ')|(' + HL_PARTS[6] + ')', 'g');
+    let out = '', last = 0, m;
+    while ((m = re.exec(src)) !== null) {
+      out += escapeHtml(src.slice(last, m.index));
+      const cls = m[1] ? 'tok-com' : m[2] ? 'tok-str' : m[3] ? 'tok-key' : 'tok-num';
+      out += '<span class="' + cls + '">' + escapeHtml(m[0]) + '</span>';
+      last = m.index + m[0].length;
+    }
+    return out + escapeHtml(src.slice(last));
+  }
+
+  $('code-kmeans').innerHTML = highlight(KMeansModule.toString());
+  $('code-features').innerHTML = highlight(FeatureModule.toString());
+
+  // 库片段标签页
+  const libTabs = $('libTabs');
+  libTabs.innerHTML = LIB_SNIPPETS.map(function (s, i) {
+    return '<button data-lib="' + i + '"' + (i === 0 ? ' class="on"' : '') + '>' + s.title + '</button>';
+  }).join('');
+  function showLib(i) {
+    $('code-lib').innerHTML = highlight(LIB_SNIPPETS[i].code);
+    libTabs.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('on', +b.dataset.lib === i);
+    });
+    $('copyLib').dataset.idx = i;
+  }
+  libTabs.addEventListener('click', function (e) {
+    if (e.target.dataset.lib !== undefined) showLib(+e.target.dataset.lib);
+  });
+  showLib(0);
+  $('copyLib').addEventListener('click', function () {
+    copyText(LIB_SNIPPETS[+$('copyLib').dataset.idx].code, '已复制代码片段');
+  });
+
+  // 顶部标签页切换
+  document.querySelectorAll('.tabs [data-tab]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.tabs [data-tab]').forEach(function (x) { x.classList.toggle('on', x === b); });
+      ['kmeans', 'features', 'libs', 'theory'].forEach(function (t) {
+        $('pane-' + t).classList.toggle('hidden', t !== b.dataset.tab);
+      });
+    });
+  });
+  document.querySelectorAll('.copy[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const map = { kmeans: KMeansModule, features: FeatureModule };
+      copyText(map[b.dataset.copy].toString(), '已复制源码（' + b.dataset.copy + '）');
+    });
+  });
+
+  // ---------------------------------------------------------------- 启动
+  setSource(demoImage('blocks'), '示例图-几何色块');
+})();
+</script>
+</body>
+</html>
