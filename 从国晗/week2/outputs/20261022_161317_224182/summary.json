@@ -1,0 +1,324 @@
+{
+  "created_at": "2026-10-22T16:13:17.992984+08:00",
+  "execution_note": "本次 20 轮实验由用户按指导修改 EPOCHS 并亲手运行，用户提供了控制台结果；助手核验了源码、权重与测试预测。",
+  "dataset": "sklearn.datasets.load_digits",
+  "dataset_size": 1797,
+  "dataset_sha256": "faf2d98f61250c1cdc0b114323133d3c58da04f5c5d28bb78e4bde3c936a75b1",
+  "split_sizes": {
+    "train": 1257,
+    "validation": 270,
+    "test": 270
+  },
+  "class_counts": {
+    "train": [
+      124,
+      127,
+      124,
+      128,
+      127,
+      127,
+      127,
+      125,
+      122,
+      126
+    ],
+    "validation": [
+      27,
+      27,
+      27,
+      27,
+      27,
+      28,
+      27,
+      27,
+      26,
+      27
+    ],
+    "test": [
+      27,
+      28,
+      26,
+      28,
+      27,
+      27,
+      27,
+      27,
+      26,
+      27
+    ]
+  },
+  "unique_image_count": 1797,
+  "experiments": [
+    {
+      "config": {
+        "seed": 42,
+        "epochs": 20,
+        "batch_size": 32,
+        "hidden_sizes": [
+          32,
+          16
+        ],
+        "learning_rate": 0.1,
+        "optimizer": "SGD",
+        "device": "cpu",
+        "normalization": "divide_by_16"
+      },
+      "initial_val_loss": 2.3147997856140137,
+      "initial_val_accuracy": 0.10000000149011612,
+      "best_epoch": 16,
+      "best_val_loss": 0.22060184180736542,
+      "best_val_accuracy": 0.9370370507240295,
+      "elapsed_seconds": 0.3480724000000919,
+      "checkpoint_file": "lr_0p1_best.pt",
+      "history_file": "lr_0p1_history.csv"
+    },
+    {
+      "config": {
+        "seed": 42,
+        "epochs": 20,
+        "batch_size": 32,
+        "hidden_sizes": [
+          32,
+          16
+        ],
+        "learning_rate": 0.01,
+        "optimizer": "SGD",
+        "device": "cpu",
+        "normalization": "divide_by_16"
+      },
+      "initial_val_loss": 2.3147997856140137,
+      "initial_val_accuracy": 0.10000000149011612,
+      "best_epoch": 20,
+      "best_val_loss": 2.1033341884613037,
+      "best_val_accuracy": 0.35185185074806213,
+      "elapsed_seconds": 0.3168580000001384,
+      "checkpoint_file": "lr_0p01_best.pt",
+      "history_file": "lr_0p01_history.csv"
+    }
+  ],
+  "selected_experiment_index": 0,
+  "selection_rule": "选择验证交叉熵最低的实验及其轮次；测试集不参与选择。",
+  "test": {
+    "loss": 0.1640222668647766,
+    "accuracy": 0.9407407407407408,
+    "macro_f1": 0.9403905647112275,
+    "correct": 254,
+    "total": 270,
+    "majority_class": 3,
+    "majority_baseline_accuracy": 0.1037037037037037,
+    "confusion_matrix": [
+      [
+        26,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        25,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        2
+      ],
+      [
+        0,
+        1,
+        25,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        28,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        26,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        27,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        27,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        26,
+        0,
+        0
+      ],
+      [
+        0,
+        3,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        21,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        2,
+        0,
+        0,
+        2,
+        0,
+        23
+      ]
+    ],
+    "classification_report": {
+      "0": {
+        "precision": 1.0,
+        "recall": 0.9629629629629629,
+        "f1-score": 0.9811320754716981,
+        "support": 27.0
+      },
+      "1": {
+        "precision": 0.8620689655172413,
+        "recall": 0.8928571428571429,
+        "f1-score": 0.8771929824561403,
+        "support": 28.0
+      },
+      "2": {
+        "precision": 1.0,
+        "recall": 0.9615384615384616,
+        "f1-score": 0.9803921568627451,
+        "support": 26.0
+      },
+      "3": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 28.0
+      },
+      "4": {
+        "precision": 0.8666666666666667,
+        "recall": 0.9629629629629629,
+        "f1-score": 0.9122807017543859,
+        "support": 27.0
+      },
+      "5": {
+        "precision": 0.9642857142857143,
+        "recall": 1.0,
+        "f1-score": 0.9818181818181818,
+        "support": 27.0
+      },
+      "6": {
+        "precision": 0.9310344827586207,
+        "recall": 1.0,
+        "f1-score": 0.9642857142857143,
+        "support": 27.0
+      },
+      "7": {
+        "precision": 0.896551724137931,
+        "recall": 0.9629629629629629,
+        "f1-score": 0.9285714285714286,
+        "support": 27.0
+      },
+      "8": {
+        "precision": 1.0,
+        "recall": 0.8076923076923077,
+        "f1-score": 0.8936170212765957,
+        "support": 26.0
+      },
+      "9": {
+        "precision": 0.92,
+        "recall": 0.8518518518518519,
+        "f1-score": 0.8846153846153846,
+        "support": 27.0
+      },
+      "accuracy": 0.9407407407407408,
+      "macro avg": {
+        "precision": 0.9440607553366174,
+        "recall": 0.9402828652828653,
+        "f1-score": 0.9403905647112275,
+        "support": 270.0
+      },
+      "weighted avg": {
+        "precision": 0.9435498996533479,
+        "recall": 0.9407407407407408,
+        "f1-score": 0.9404023565790676,
+        "support": 270.0
+      }
+    }
+  },
+  "versions": {
+    "python": "3.11.9",
+    "torch": "2.14.1+cpu",
+    "numpy": "2.4.6",
+    "scikit_learn": "1.9.1"
+  },
+  "limitations": [
+    "仅单次固定随机划分与单一随机种子。",
+    "未按书写者分组，不代表跨书写者泛化评估。",
+    "适用本数据分布的 8×8 图片，不能直接保证识别手机照片或任意手写输入。",
+    "Softmax 数值未经置信度校准。"
+  ],
+  "execution_operator": "user",
+  "user_completed_steps": [
+    "run_training",
+    "change_epochs"
+  ]
+}
