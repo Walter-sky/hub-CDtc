@@ -1,0 +1,22 @@
+{
+  "selected_group": "A",
+  "rule": "三组各自最佳候选中，选择验证交叉熵最低者。",
+  "selected_run": "20261022_161317_224182",
+  "selected_config": {
+    "seed": 42,
+    "epochs": 20,
+    "batch_size": 32,
+    "hidden_sizes": [
+      32,
+      16
+    ],
+    "learning_rate": 0.1,
+    "optimizer": "SGD",
+    "device": "cpu",
+    "normalization": "divide_by_16"
+  },
+  "selected_epoch": 16,
+  "validation_loss": 0.22060184180736542,
+  "test_accuracy": 0.9407407407407408,
+  "note": "A与C测试仅差1张；此选择遵循验证损失规则，不声称统计显著优于C。"
+}

@@ -1,0 +1,5 @@
+# PyTorch 使用 CPU 官方安装源，具体安装命令见 00_从这里开始.md。
+torch
+numpy
+scikit-learn
+matplotlib
