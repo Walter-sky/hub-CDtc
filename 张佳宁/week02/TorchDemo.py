@@ -6,6 +6,7 @@ from unicodedata import category
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+from pathlib import Path
 import torch
 import torch.nn as nn
 import numpy as np
@@ -15,7 +16,6 @@ import matplotlib.pyplot as plt
 
 基于pytorch框架编写模型训练
 实现一个自行构造的找规律(机器学习)任务
-规律：x是一个5维向量，如果第1个数>第5个数，则为正样本，反之为负样本
 
 """
 
@@ -24,13 +24,11 @@ class TorchModel(nn.Module):
     def __init__(self, input_size):
         super(TorchModel, self).__init__()
         self.linear = nn.Linear(input_size, 5)  # 线性层
-        self.activation = nn.Softmax(dim=1)  # nn.Sigmoid() sigmoid归一化函数
-        self.loss = nn.functional.mse_loss  # loss函数采用均方差损失
+        self.loss = nn.functional.cross_entropy  # loss函数采用均方差损失
 
     # 当输入真实标签，返回loss值；无真实标签，返回预测值
     def forward(self, x, y=None):
-        x = self.linear(x)  # (batch_size, input_size) -> (batch_size, 5)
-        y_pred = self.activation(x)  # (batch_size, 5) -> (batch_size, 5)
+        y_pred = self.linear(x)  # (batch_size, input_size) -> (batch_size, 5)
         if y is not None:
             return self.loss(y_pred, y)  # 预测值和真实值计算损失
         else:
@@ -111,13 +109,20 @@ def evaluate(model):
     return accuracy
 
 
+# 获取当前 Python 文件所在的目录
+BASE_DIR = Path(__file__).resolve().parent
+
+# 拼接模型保存路径
+model_path = BASE_DIR / "model.bin"
+
+
 def main():
     # 配置参数
-    epoch_num = 40  # 训练轮数
-    batch_size = 20  # 每次训练样本个数
-    train_sample = 5000  # 每轮训练总共训练的样本总数
+    epoch_num = 30  # 训练轮数
+    batch_size = 25  # 每次训练样本个数
+    train_sample = 2500  # 每轮训练总共训练的样本总数
     input_size = 5  # 输入向量维度
-    learning_rate = 0.001  # 学习率
+    learning_rate = 0.1  # 学习率
     # 建立模型
     model = TorchModel(input_size)
     # 选择优化器
@@ -141,8 +146,11 @@ def main():
         print("=========\n第%d轮平均loss:%f" % (epoch + 1, np.mean(watch_loss)))
         acc = evaluate(model)  # 测试本轮模型结果
         log.append([acc, float(np.mean(watch_loss))])
+    # # 保存模型
+    # torch.save(model.state_dict(), "model.bin")
+
     # 保存模型
-    torch.save(model.state_dict(), "model.bin")
+    torch.save(model.state_dict(), model_path)
     # 画图
     print(log)
     plt.plot(range(len(log)), [l[0] for l in log], label="acc")  # 画acc曲线
@@ -168,8 +176,8 @@ def predict(model_path, input_vec):
         print(f"输入：{vec}")
         print(f"真实类别：第 {i_t + 1} 类")
         print(f"预测类别：第 {i_p + 1} 类")
-        print(f"最大概率：{res[i_p].item():.2%}")
-        print(f"全部概率：{res.tolist()}")
+        print(f"最高得分：{res[i_p].item()}")
+        print(f"全部得分：{res.tolist()}")
         print("-------------------")
 
 
@@ -181,4 +189,4 @@ if __name__ == "__main__":
         [0.90797868, 0.67482528, 0.13625847, 0.34675372, 0.19871392],
         [0.39349776, 0.59416669, 0.92579291, 0.41567412, 0.8358894],
     ]
-    predict("model.bin", test_vec)
+    predict(model_path, test_vec)
